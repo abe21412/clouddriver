@@ -30,6 +30,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @SpringBootTest(
     classes = {Main.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -44,12 +47,24 @@ public abstract class BaseTest {
 
   @LocalServerPort int port;
 
-  public static final KubernetesCluster kubeCluster;
+  public static final ArrayList<KubernetesCluster> kubeClusters = new ArrayList();
+
+  private static final ArrayList<String> IMAGES = new ArrayList(List.of(
+    "kindest/node:v1.14.10@sha256:f8a66ef82822ab4f7569e91a5bccaf27bceee135c1457c512e54de8c6f7219f8",
+    "kindest/node:v1.15.12@sha256:b920920e1eda689d9936dfcf7332701e80be12566999152626b2c9d730397a95"
+  ));
 
   static {
-    kubeCluster = KubernetesCluster.getInstance();
-    kubeCluster.start();
+    for (String image: IMAGES) {
+      KubernetesCluster cluster = new KubernetesCluster(image);
+        cluster.start();
+        kubeClusters.add(cluster);
+    }
     RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+  }
+
+  public static ArrayList<KubernetesCluster> getTestClusters(){
+    return kubeClusters;
   }
 
   public String baseUrl() {

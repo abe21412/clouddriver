@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it.utils;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.it.BaseTest;
+import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
@@ -31,6 +32,6 @@ public class TestLifecycleListener
 
   @Override
   public void close() {
-    BaseTest.kubeCluster.stop();
+    BaseTest.kubeClusters.forEach(KubernetesCluster::stop);
   }
 }

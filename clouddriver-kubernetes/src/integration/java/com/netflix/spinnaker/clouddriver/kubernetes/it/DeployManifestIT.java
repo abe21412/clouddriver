@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
 import java.io.IOException;
@@ -34,6 +35,8 @@ import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class DeployManifestIT extends BaseTest {
 
@@ -46,7 +49,11 @@ public class DeployManifestIT extends BaseTest {
 
   @BeforeAll
   public static void setUpAll() throws IOException, InterruptedException {
-    account1Ns = kubeCluster.createNamespace(ACCOUNT1_NAME);
+    account1Ns = kubeClusters.get(0).createNamespace(ACCOUNT1_NAME);
+    for (int i = 1; i < kubeClusters.size(); i++) {
+      kubeClusters.get(i).createNamespace(ACCOUNT1_NAME);
+    }
+
   }
 
   @DisplayName(
@@ -56,8 +63,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then a pod is up and running in the overridden namespace\n===")
-  @Test
-  public void shouldDeployManifestFromText() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployManifestFromText(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "deploy-from-text";
     List<Map<String, Object>> manifest =
@@ -98,8 +106,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And a namespace override that is not listed in account's namespaces\n"
           + "When sending deploy manifest request\n"
           + "Then deployment fails with DescriptionValidationException\n===")
-  @Test
-  public void shouldNotDeployToNamespaceNotListed() {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldNotDeployToNamespaceNotListed(KubernetesCluster kubeCluster) {
     // ------------------------- given --------------------------
     String overrideNamespace = "nonexistent";
     String appName = "namespace-forbidden";
@@ -137,8 +146,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then a pod is up and running in the default namespace\n===")
-  @Test
-  public void shouldDeployManifestToDefaultNs() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployManifestToDefaultNs(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "default-ns";
     System.out.println("> Using namespace: default, appName: " + appName);
@@ -177,8 +187,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then a service and pod exist in the target cluster\n===")
-  @Test
-  public void shouldDeployMultidocManifest() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployMultidocManifest(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "deploy-multidoc";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -223,8 +234,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then old version is deleted and new version is available\n===")
-  @Test
-  public void shouldUpdateExistingDeployment() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldUpdateExistingDeployment(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "update-deploy";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -304,8 +316,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the docker artifact is deployed\n===")
-  @Test
-  public void shouldBindOptionalDockerImage() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindOptionalDockerImage(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-optional";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -370,8 +383,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the docker artifact is deployed\n===")
-  @Test
-  public void shouldBindRequiredDockerImage() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindRequiredDockerImage(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-required";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -435,8 +449,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And required docker artifact present\n"
           + "When sending deploy manifest request two times\n"
           + "Then there are two replicaSet versions deployed\n===")
-  @Test
-  public void shouldStepReplicaSetVersion() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldStepReplicaSetVersion(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "step-rs";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -507,8 +522,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then required docker artifact is deployed\n===")
-  @Test
-  public void shouldBindRequiredOverOptionalDockerImage() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindRequiredOverOptionalDockerImage(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-required-over-optional";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -583,8 +599,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed mounting versioned configmap\n===")
-  @Test
-  public void shouldBindVersionedConfigMap() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindVersionedConfigMap(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-config-map";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -658,8 +675,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed mounting versioned secret\n===")
-  @Test
-  public void shouldBindVersionedSecret() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindVersionedSecret(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-secret";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -733,8 +751,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the manifest is deployed with the original image tag in the manifest\n===")
-  @Test
-  public void shouldNotBindArtifacts() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldNotBindArtifacts(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-disabled";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -808,8 +827,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then configmap is deployed with a version suffix name\n===")
-  @Test
-  public void shouldAddVersionToConfigmap() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldAddVersionToConfigmap(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "add-config-map-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -841,8 +861,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then secret is deployed with a version suffix name\n===")
-  @Test
-  public void shouldAddVersionToSecret() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldAddVersionToSecret(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "add-secret-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -877,8 +898,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And waiting on manifest stable\n"
           + "Then a new version of configmap is deployed\n"
           + "  And the previous version of configmap is not deleted or changed\n===")
-  @Test
-  public void shouldDeployNewConfigmapVersion() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployNewConfigmapVersion(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "new-config-map-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -928,8 +950,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And waiting on manifest stable\n"
           + "Then a new version of secret is deployed\n"
           + "  And the previous version of secret is not deleted or changed\n===")
-  @Test
-  public void shouldDeployNewSecretVersion() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployNewSecretVersion(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "new-secret-version";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -980,8 +1003,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then configmap is deployed without version\n===")
-  @Test
-  public void shouldNotAddVersionToConfigmap() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldNotAddVersionToConfigmap(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "unversioned-config-map";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1015,8 +1039,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then secret is deployed without version\n===")
-  @Test
-  public void shouldNotAddVersionToSecret() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldNotAddVersionToSecret(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "unversioned-secret";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1051,8 +1076,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
-  @Test
-  public void shouldDeployRedBlackMultidoc() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployRedBlackMultidoc(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black-multidoc";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1131,8 +1157,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
-  @Test
-  public void shouldDeployBlueGreenMultidoc() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployBlueGreenMultidoc(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "blue-green-multidoc";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1211,8 +1238,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
-  @Test
-  public void shouldDeployRedBlackReplicaSet() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployRedBlackReplicaSet(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "red-black";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1285,8 +1313,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending deploy manifest request two times\n"
           + "  And sending disable manifest one time\n"
           + "Then there are two replicasets with only the last one receiving traffic\n===")
-  @Test
-  public void shouldDeployBlueGreenReplicaSet() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployBlueGreenReplicaSet(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "blue-green";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1359,8 +1388,9 @@ public class DeployManifestIT extends BaseTest {
           + "When sending cron job manifest request\n"
           + "  And waiting on manifest stable\n"
           + "Then the docker artifact is scheduled\n===")
-  @Test
-  public void shouldBindRequiredCronJobDockerImage() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldBindRequiredCronJobDockerImage(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String appName = "bind-required";
     System.out.println("> Using namespace: " + account1Ns + ", appName: " + appName);
@@ -1410,8 +1440,9 @@ public class DeployManifestIT extends BaseTest {
           + "Given a v1beta1 CRD manifest\n"
           + "When sending deploy manifest request\n"
           + "Then a v1beta1 CRD is created\n===")
-  @Test
-  public void shouldDeployCrdV1beta1() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployCrdV1beta1(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     final String crdName = "crontabs.stable.example.com";
     final List<Map<String, Object>> manifest =
@@ -1437,8 +1468,9 @@ public class DeployManifestIT extends BaseTest {
           + "Given a v1 CRD manifest\n"
           + "When sending deploy manifest request\n"
           + "Then a v1 CRD is created\n===")
-  @Test
-  public void shouldDeployCrdV1() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployCrdV1(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     final String crdName = "crontabs.stable.example.com";
     final List<Map<String, Object>> manifest =
@@ -1465,8 +1497,9 @@ public class DeployManifestIT extends BaseTest {
           + " And it's associated CR manifests"
           + "When sending deploy manifests request\n"
           + "Then a CRD and it's CR is created at namespaced level\n===")
-  @Test
-  public void shouldDeployCrCrdNamespacedV1() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployCrCrdNamespacedV1(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     final String crdGroup = "stable.example.com";
     final String crdName = String.format("crontabs.%s", crdGroup);
@@ -1514,8 +1547,9 @@ public class DeployManifestIT extends BaseTest {
           + " And it's associated CR manifests"
           + "When sending deploy manifests request\n"
           + "Then a CRD and it's CR is created at cluster level\n===")
-  @Test
-  public void shouldDeployCrCrdClusterV1() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldDeployCrCrdClusterV1(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     final String crdGroup = "stable.cluster.com";
     final String crdName = String.format("crontabs.%s", crdGroup);
@@ -1565,8 +1599,9 @@ public class DeployManifestIT extends BaseTest {
           + "Given a CRD already hardcoded in the account configuration\n"
           + "When sending credentials request\n"
           + "Then the credentials response contains the deployed CRD\n===")
-  @Test
-  public void shouldGetDeployedCrdsCredentials() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldGetDeployedCrdsCredentials(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     // ------------------------- when --------------------------
     Response response =
@@ -1597,8 +1632,9 @@ public class DeployManifestIT extends BaseTest {
           + "  With a a new env var\n"
           + "  And a different replica size\n"
           + "The manifest is deployed with the new env var and the old replicas size\n===")
-  @Test
-  public void shouldUseSourceCapacityNonVersioned() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldUseSourceCapacityNonVersioned(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     int originalReplicasSize = 1;
     int secondReplicasSize = 5;
@@ -1687,8 +1723,9 @@ public class DeployManifestIT extends BaseTest {
           + "  With a a new env var\n"
           + "  And a different replica size\n"
           + "The manifest is deployed with the new env var and the replicas value from the previous version\n===")
-  @Test
-  public void shouldUseSourceCapacityVersioned() throws IOException, InterruptedException {
+  @ParameterizedTest
+  @MethodSource("getTestClusters")
+  public void shouldUseSourceCapacityVersioned(KubernetesCluster kubeCluster) throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     int originalReplicasSize = 1;
     int secondReplicasSize = 5;
